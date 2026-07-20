@@ -32,7 +32,8 @@ ENV MODEL_WEIGHTS_DIR=/app/model_weights \
     NO_ALBUMENTATIONS_UPDATE=1 \
     PYTHONUNBUFFERED=1
 
-RUN mkdir -p /app/model_weights /app/static/uploads /app/logs
+RUN mkdir -p /app/model_weights /app/static/uploads /app/logs \
+    && python -c "from pix2tex.cli import LatexOCR; LatexOCR(None)"
 
 # Hugging Face Spaces expects the app to listen on port 7860 by default;
 # Render injects its own $PORT (handled by the CMD below).
