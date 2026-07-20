@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.venv/
+venv/
+logs/
+static/uploads/*
+!static/uploads/.gitkeep
+model_weights/*
+!model_weights/.gitkeep
+.pytest_cache/
+*.md
+!README.md
+.DS_Store

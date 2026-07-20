@@ -1,0 +1,22 @@
+# --- Web framework ---------------------------------------------------------
+Flask==3.0.3
+gunicorn==22.0.0
+Werkzeug==3.0.3
+
+# --- Deep learning / OCR ----------------------------------------------------
+# CPU wheel by default: swap for a CUDA build if deploying with a GPU.
+torch==2.3.1
+torchvision==0.18.1
+pix2tex==0.1.4
+
+# --- Image processing --------------------------------------------------------
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+Pillow==10.4.0
+
+# --- Math parsing / solving ---------------------------------------------------
+sympy==1.13.1
+antlr4-python3-runtime==4.11  # required by sympy.parsing.latex.parse_latex
+
+# --- Misc ---------------------------------------------------------------------
+python-dotenv==1.0.1

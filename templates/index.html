@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equation Slate — Handwritten Math Recognition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <div class="grid-backdrop"></div>
+
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark">∑</span>
+      <div class="brand-text">
+        <h1>Equation Slate</h1>
+        <p>Write it. Solve it. See the LaTeX.</p>
+      </div>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="dot"></span>
+      <span id="statusText">Checking model…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- INPUT PANEL -->
+    <section class="panel input-panel">
+      <div class="panel-heading">
+        <h2>1. Give it an equation</h2>
+        <div class="tab-switch" role="tablist">
+          <button class="tab-btn active" data-tab="draw" role="tab">Draw</button>
+          <button class="tab-btn" data-tab="upload" role="tab">Upload</button>
+        </div>
+      </div>
+
+      <div class="tab-panel active" id="tab-draw">
+        <div class="canvas-toolbar">
+          <button id="clearCanvas" class="tool-btn">Clear</button>
+          <label class="tool-btn range-label">
+            Pen
+            <input type="range" id="penWidth" min="2" max="12" value="5">
+          </label>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="drawCanvas" width="800" height="360"></canvas>
+          <p class="canvas-hint">Draw with your mouse, finger, or stylus — e.g. <em>x^2 + 3x - 4 = 0</em></p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-upload">
+        <label class="dropzone" id="dropzone" for="fileInput">
+          <span class="dropzone-icon">⌁</span>
+          <span class="dropzone-title">Drop an image here</span>
+          <span class="dropzone-sub">or click to browse — PNG, JPG, up to 8&nbsp;MB</span>
+          <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.webp" hidden>
+        </label>
+        <div class="preview-wrap" id="previewWrap" hidden>
+          <img id="previewImage" alt="Uploaded equation preview">
+        </div>
+      </div>
+
+      <button id="solveBtn" class="primary-btn">
+        <span class="btn-label">Recognize &amp; Solve</span>
+        <span class="btn-spinner" hidden></span>
+      </button>
+      <p class="error-msg" id="errorMsg" hidden></p>
+    </section>
+
+    <!-- RESULTS PANEL -->
+    <section class="panel results-panel">
+      <div class="panel-heading">
+        <h2>2. Read the result</h2>
+        <div class="confidence-badge" id="confidenceBadge" hidden>
+          <span id="confidenceValue">—</span>
+          <span class="confidence-label">confidence</span>
+        </div>
+      </div>
+
+      <div class="results-empty" id="resultsEmpty">
+        <span class="empty-glyph">∫</span>
+        <p>Your recognized equation, LaTeX source, and solved result will show up here.</p>
+      </div>
+
+      <div class="results-body" id="resultsBody" hidden>
+
+        <div class="result-block">
+          <h3>Recognized equation</h3>
+          <div class="rendered-eq" id="renderedEq"></div>
+        </div>
+
+        <div class="result-block">
+          <div class="result-block-header">
+            <h3>LaTeX</h3>
+            <button type="button" class="copy-btn" id="copyLatexBtn" title="Copy LaTeX">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <pre class="code-block" id="latexOutput"></pre>
+        </div>
+
+        <div class="result-block">
+          <div class="result-block-header">
+            <h3>Solved result</h3>
+            <button type="button" class="copy-btn" id="copySolutionBtn" title="Copy solution">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy solution</span>
+            </button>
+          </div>
+          <div id="solutionOutput" class="solution-output"></div>
+        </div>
+
+        <details class="raw-samples">
+          <summary>Model decode samples (used for confidence estimate)</summary>
+          <ul id="samplesList"></ul>
+        </details>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Pix2Tex (LaTeX-OCR) · OpenCV preprocessing · SymPy solving · Flask</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" id="MathJax-script" async></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
