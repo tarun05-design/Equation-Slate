@@ -2,7 +2,7 @@
 
 An end-to-end deep learning web application that recognizes mathematical equations (handwritten drawings or uploaded images), converts them into LaTeX using **Pix2Tex** and **TrOCR-Math**, and solves/simplifies them with **SymPy** — including algebraic equations and differential equations.
 
-[![Source Code](https://img.shields.io/badge/💻%20Source%20Code-github.com%2Ftarun05--design%2FEquation--Slate-46E3B7?style=for-the-badge&logo=github&logoColor=black)](https://github.com/tarun05-design/Equation-Slate)
+[![Source Code](https://img.shields.io/badge/%20Source%20Code-github.com%2Ftarun05--design%2FEquation--Slate-46E3B7?style=for-the-badge&logo=github&logoColor=black)](https://github.com/tarun05-design/Equation-Slate)
 
 ![python](https://img.shields.io/badge/python-3.10+-blue?style=flat&logo=python) ![pytorch](https://img.shields.io/badge/pytorch-2.4.1-ee4c2c?style=flat&logo=pytorch) ![flask](https://img.shields.io/badge/framework-flask-000000?style=flat&logo=flask) ![sympy](https://img.shields.io/badge/symbolic-sympy-3776ab?style=flat) ![docker](https://img.shields.io/badge/docker-containerized-2496ed?style=flat&logo=docker) ![license](https://img.shields.io/badge/license-MIT-green?style=flat)
 
