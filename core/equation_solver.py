@@ -184,10 +184,95 @@ def parse_latex_expression(latex: str) -> sympy.Basic:
     return expr
 
 
+def _is_ode_expression(expr: sympy.Basic) -> bool:
+    """Check if a SymPy expression or Eq represents a differential equation."""
+    if expr.has(sympy.Derivative):
+        return True
+    if hasattr(expr, "free_symbols"):
+        symbols = {s.name for s in expr.free_symbols}
+        ode_symbol_names = {"dx", "dy", "dt", "y'", "y''", "y'''", "y^{(1)}", "y^{(2)}", r"\dot{y}", r"\ddot{y}"}
+        if symbols & ode_symbol_names:
+            return True
+    return False
+
+
+def _try_solve_ode(expr: sympy.Basic, latex: str, cleaned: str) -> Optional[SolveResult]:
+    """Attempt to solve an expression or equation as an Ordinary Differential Equation (ODE)."""
+    x_sym = sympy.Symbol("x")
+    y_sym = sympy.Symbol("y")
+    t_sym = sympy.Symbol("t")
+
+    symbols = {s.name for s in expr.free_symbols} if hasattr(expr, "free_symbols") else set()
+    indep_sym = t_sym if ("dt" in symbols and "dx" not in symbols) else x_sym
+    y_func = sympy.Function("y")(indep_sym)
+
+    subs_map = {}
+    if "dx" in symbols and "dy" in symbols:
+        subs_map[sympy.Symbol("dx")] = 1
+        subs_map[sympy.Symbol("dy")] = sympy.Derivative(y_func, indep_sym)
+        subs_map[y_sym] = y_func
+    if "y'" in symbols:
+        subs_map[sympy.Symbol("y'")] = sympy.Derivative(y_func, indep_sym)
+        subs_map[y_sym] = y_func
+    if "y''" in symbols:
+        subs_map[sympy.Symbol("y''")] = sympy.Derivative(y_func, indep_sym, 2)
+        subs_map[y_sym] = y_func
+    if "y'''" in symbols:
+        subs_map[sympy.Symbol("y'''")] = sympy.Derivative(y_func, indep_sym, 3)
+        subs_map[y_sym] = y_func
+
+    if y_sym in symbols and y_sym not in subs_map:
+        subs_map[y_sym] = y_func
+
+    ode_expr = expr.subs(subs_map) if subs_map else expr.subs({y_sym: y_func})
+
+    if not isinstance(ode_expr, sympy.Eq):
+        ode_expr = sympy.Eq(ode_expr, 0)
+
+    try:
+        sol = sympy.dsolve(ode_expr, y_func)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("sympy.dsolve failed for %r: %s", latex, exc)
+        return None
+
+    solutions_list = [sol] if not isinstance(sol, list) else sol
+    readable_solutions = [str(s) for s in solutions_list]
+
+    steps: List[str] = [f"\\text{{Given differential equation: }} {sympy.latex(expr)}"]
+    
+    try:
+        hints = [h for h in sympy.classify_ode(ode_expr, y_func) if not h.endswith("_Integral")]
+        if hints:
+            primary_hint = hints[0]
+            readable_type = primary_hint.replace("_", " ").title()
+            steps.append(f"\\text{{Classification: }} \\text{{{readable_type}}}")
+    except Exception:
+        pass
+
+    steps.append(f"\\text{{Standard ODE form: }} {sympy.latex(ode_expr)}")
+    for s in solutions_list:
+        steps.append(f"\\text{{General solution: }} {sympy.latex(s)}")
+
+    return SolveResult(
+        original_latex=latex,
+        sympy_input=cleaned,
+        kind="equation",
+        solutions=readable_solutions,
+        simplified=str(sympy.simplify(ode_expr.lhs - ode_expr.rhs)),
+        steps=steps,
+    )
+
+
 def solve_expression(latex: str) -> SolveResult:
     """Parse and solve/simplify a recognized LaTeX equation or expression."""
     expr = parse_latex_expression(latex)
     cleaned = _clean_latex_for_parsing(latex)
+
+    # Check if this expression is a differential equation
+    if _is_ode_expression(expr):
+        ode_result = _try_solve_ode(expr, latex, cleaned)
+        if ode_result is not None:
+            return ode_result
 
     # `parse_latex` turns "a = b" into an Eq(a, b) automatically when the
     # source contains a top-level "=".
@@ -239,3 +324,4 @@ def solve_expression(latex: str) -> SolveResult:
         numeric_value=numeric_value,
         steps=steps,
     )
+

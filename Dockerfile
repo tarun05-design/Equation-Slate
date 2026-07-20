@@ -29,6 +29,7 @@ ENV MODEL_WEIGHTS_DIR=/app/model_weights \
     XDG_CACHE_HOME=/app/model_weights/cache \
     FLASK_ENV=production \
     DEVICE=cpu \
+    NO_ALBUMENTATIONS_UPDATE=1 \
     PYTHONUNBUFFERED=1
 
 RUN mkdir -p /app/model_weights /app/static/uploads /app/logs
