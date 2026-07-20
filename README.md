@@ -1,243 +1,171 @@
-# Equation Slate — Handwritten Math Equation Recognition & Solver
+# 🧮 Equation Slate — Handwritten Math Equation Recognizer & Solver
 
-An end-to-end deep learning web application that recognizes handwritten
-mathematical equations (uploaded photo or drawn on an in-browser canvas),
-converts them to LaTeX with a pretrained **Pix2Tex** model, solves/simplifies
-them with **SymPy**, and displays the recognized equation, LaTeX source,
-solved result, and an estimated confidence score.
+An end-to-end deep learning web application that recognizes mathematical equations (handwritten drawings or uploaded images), converts them into LaTeX using **Pix2Tex** and **TrOCR-Math**, and solves/simplifies them with **SymPy** — including algebraic equations and differential equations.
 
+[![Source Code](https://img.shields.io/badge/💻%20Source%20Code-github.com%2Ftarun05--design%2FEquation--Slate-46E3B7?style=for-the-badge&logo=github&logoColor=black)](https://github.com/tarun05-design/Equation-Slate)
+
+![python](https://img.shields.io/badge/python-3.10+-blue?style=flat&logo=python) ![pytorch](https://img.shields.io/badge/pytorch-2.4.1-ee4c2c?style=flat&logo=pytorch) ![flask](https://img.shields.io/badge/framework-flask-000000?style=flat&logo=flask) ![sympy](https://img.shields.io/badge/symbolic-sympy-3776ab?style=flat) ![docker](https://img.shields.io/badge/docker-containerized-2496ed?style=flat&logo=docker) ![license](https://img.shields.io/badge/license-MIT-green?style=flat)
+
+---
+
+## ⚡ Key Features
+
+- **Dual OCR Engine**: Primary inference via **Pix2Tex (LaTeX-OCR)** with automatic fallback to **TrOCR-Math** (`fhswf/TrOCR_Math_handwritten`) for complex handwritten inputs or low confidence.
+- **Advanced Symbolic Solver**: Powered by **SymPy**. Solves linear, quadratic, polynomial, systems of equations, and **1st/2nd order Ordinary Differential Equations (ODEs)**.
+- **Interactive Drawing Canvas**: In-browser drawing pad with stroke adjustments, clear options, and direct canvas-to-API transmission.
+- **Image Preprocessing Pipeline**: Adaptive grayscale conversion, Bilateral filtering noise reduction, Otsu's threshold binarization, and bounding box cropping.
+- **Self-Consistency Confidence Metric**: Multi-sample decoding similarity combined with image quality heuristics (sharpness & ink density).
+- **Containerized & Production Ready**: Ready to run via Gunicorn, Docker, or Cloud platforms (Render, Hugging Face Spaces, AWS).
+
+---
+
+## 🏗️ System Architecture & Workflow
+
+```mermaid
+flowchart TD
+    A["User Input: Canvas Drawing / Uploaded Image"] --> B["OpenCV Preprocessing Engine"]
+    B --> C["Grayscale -> Denoise -> Otsu Thresholding -> Bounding Crop"]
+    C --> D{"Primary OCR: Pix2Tex (LaTeX-OCR)"}
+    
+    D -- "High Confidence" --> F["LaTeX Output"]
+    D -- "Low Confidence / Suspicious Artifacts" --> E["Fallback OCR: TrOCR-Math"]
+    E --> F
+    
+    F --> G["SymPy Mathematical Solver"]
+    G --> H1["Algebraic Equations (Linear/Quadratic)"]
+    G --> H2["Differential Equations (1st/2nd Order ODEs)"]
+    G --> H3["Symbolic Simplification"]
+    
+    H1 --> I["JSON API Response"]
+    H2 --> I
+    H3 --> I
+    I --> J["Interactive UI Dashboard & MathJax Renderer"]
 ```
-Draw / upload  ->  OpenCV preprocessing  ->  Pix2Tex (LaTeX-OCR)  ->  SymPy solve  ->  JSON  ->  UI
-```
 
-## Contents
+---
 
-- [Architecture](#architecture)
-- [Local setup](#local-setup)
-- [Running the app](#running-the-app)
-- [Validating the pipeline](#validating-the-pipeline)
-- [API reference](#api-reference)
-- [Docker](#docker)
-- [Deployment](#deployment)
-- [Configuration](#configuration)
-- [Known limitations](#known-limitations)
+## 📁 Repository Structure
 
-## Architecture
-
-```
-├── app.py                     # Flask app factory + routes
-├── config.py                  # Environment-aware configuration
+```tree
+mathrecognizer/
+├── app.py                       # Flask app entry point & REST API routes
+├── config.py                    # Environment-aware configuration (CPU/CUDA, paths, timeouts)
+├── run_local.bat                # One-click Windows local development launcher
 ├── core/
-│   ├── preprocessing.py       # OpenCV pipeline (grayscale, denoise, threshold, crop, resize)
-│   ├── model_inference.py     # Pix2Tex wrapper: lazy load, inference, confidence estimation
-│   └── equation_solver.py     # LaTeX -> SymPy parsing + solving/simplifying
+│   ├── preprocessing.py         # OpenCV image processing & binarization pipeline
+│   ├── model_inference.py       # Pix2Tex & TrOCR-Math wrappers with auto-fallback
+│   └── equation_solver.py       # SymPy LaTeX parser, algebraic & ODE solver
 ├── utils/
-│   └── logger.py              # Centralized logging configuration
-├── templates/index.html       # Single-page UI (draw / upload tabs + results panel)
-├── static/css/style.css       # UI styling
-├── static/js/app.js           # Canvas drawing, upload, fetch() calls, result rendering
-├── scripts/validate_pipeline.py  # Self-contained end-to-end pipeline check
-├── requirements.txt
-├── Dockerfile
-└── .dockerignore / .gitignore
+│   └── logger.py                # Logging utility
+├── templates/
+│   └── index.html               # Single-page web application dashboard
+├── static/
+│   ├── css/style.css            # UI design tokens, dark mode, glassmorphism
+│   └── js/app.js                # Canvas drawing logic, API integrations, LaTeX rendering
+├── tests/
+│   └── test_differential_solver.py # Unit tests for algebraic and ODE solvers
+├── Dockerfile & .dockerignore   # Container configuration
+└── requirements.txt             # Python dependencies manifest
 ```
 
-The three `core/` modules are independent and import-safe on their own —
-`preprocessing.py` only depends on OpenCV/NumPy/Pillow, `equation_solver.py`
-only on SymPy, and `model_inference.py` defers its `pix2tex`/`torch` imports
-until the model is actually first used. This means `app.py` can be imported
-and its non-model routes exercised even before the heavy ML dependencies are
-installed, which keeps local iteration fast.
+---
 
-### Why a "confidence score" if Pix2Tex doesn't expose one?
+## 🚀 Quick Start (Local Development)
 
-Pix2Tex's public `LatexOCR.__call__` API returns only the decoded LaTeX
-string — it does not expose per-token probabilities. Rather than invent a
-number, this app computes a **self-consistency confidence**: the same
-preprocessed image is decoded multiple times (`CONFIDENCE_SAMPLES`, default
-3) and the agreement between those samples is measured (via sequence
-similarity) and blended with an image-quality heuristic from the
-preprocessing stage (sharpness + ink coverage). High agreement across
-repeated decodes + a clean input image → high confidence. This is clearly
-an estimate, not a calibrated probability, and is documented as such in the
-code (`core/model_inference.py`).
+### Prerequisites
+- Python **3.10+**
 
-## Local setup
-
-Requires Python 3.10+.
+### 1. Clone & Set Up Virtual Environment
 
 ```bash
-git clone <your-fork-url>
-cd mathrecognizer
+git clone https://github.com/tarun05-design/Equation-Slate.git
+cd Equation-Slate/mathrecognizer
 
-python3 -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+# Create virtual environment
+python -m venv .venv
 
+# Activate virtual environment
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+```
+
+### 2. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-> **First run note:** the first time `LatexOCR()` is instantiated, Pix2Tex
-> downloads its pretrained checkpoint (~115 MB total: encoder/decoder
-> weights + an image-resizing network) to a local cache directory. This
-> requires an internet connection once; afterwards it's cached and loads
-> fully offline. See [Configuration](#configuration) for pinning the cache
-> location.
+### 3. Run the Server
 
-## Running the app
+#### Option A: One-Click Launcher (Windows)
+Double-click [`run_local.bat`](file:///d:/Projects/Maths/equation-slate/mathrecognizer/run_local.bat)
 
+#### Option B: Terminal Command
 ```bash
-export FLASK_ENV=development
 python app.py
 ```
 
-The app serves at `http://localhost:7860`. Open it in a browser, either
-draw an equation on the canvas or upload an image, and click
-**Recognize & Solve**.
+Open your browser to: **`http://localhost:7860`**
 
-For a production-style run locally (matches what the Dockerfile does):
+---
 
-```bash
-gunicorn --bind 0.0.0.0:7860 --workers 1 --threads 4 --timeout 120 app:app
-```
-
-## Validating the pipeline
-
-A self-contained script exercises all three pipeline stages
-(preprocessing → inference → solving) against a synthetically generated
-test image, so it has no external file dependencies:
-
-```bash
-python scripts/validate_pipeline.py
-```
-
-Expected output ends with `Pipeline validation complete in ...s.` and prints
-the intermediate output of each stage. This is the "basic end-to-end
-validation" referenced in the project spec — it's a smoke test confirming
-the pipeline is wired correctly, not a substitute for trying real
-handwriting samples through the UI. (Pix2Tex is trained on handwritten
-strokes, so a synthetically-rendered typed-font test image is a weaker
-input for it than actual handwriting — see
-[Known limitations](#known-limitations).)
-
-## API reference
+## 📡 REST API Reference
 
 ### `POST /api/recognize`
 
-Accepts **either**:
-- `multipart/form-data` with a file field named `image`, or
-- `application/json` with `{"image_data": "data:image/png;base64,..."}` (what
-  the drawing canvas sends).
+Recognizes equation from image upload or canvas base64 string and solves it.
 
-Response `200`:
+**Request Payload (JSON or Multipart Form)**:
 ```json
 {
-  "request_id": "5003c49e",
-  "latex": "x^{2}-4=0",
-  "confidence": 0.87,
-  "samples": ["x^{2}-4=0", "x^{2}-4=0", "x^2-4=0"],
-  "solution": {
-    "kind": "equation",
-    "sympy_input": "x^{2}-4=0",
-    "solutions": ["-2", "2"],
-    "simplified": "x**2 - 4",
-    "numeric_value": null
-  },
-  "solve_warning": null,
-  "elapsed_ms": 812
+  "image_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
 }
 ```
 
-Error responses (`400`/`422`/`503`) return `{"error": "...", "stage": "..."}`
-where `stage` is one of `input`, `preprocessing`, `inference`, `model_load`.
+**Response Payload**:
+```json
+{
+  "request_id": "a1b2c3d4",
+  "latex": "2x + 5 = 1",
+  "confidence": 0.925,
+  "solution": {
+    "kind": "equation",
+    "solutions": ["-2"],
+    "simplified": "2*x + 4",
+    "steps": [
+      "\\text{Given equation: } 2x + 5 = 1",
+      "\\text{Subtract 1 from both sides: } 2x + 4 = 0",
+      "x = -2"
+    ]
+  },
+  "solve_warning": null,
+  "elapsed_ms": 340
+}
+```
 
 ### `GET /healthz`
+Health check endpoint returning container readiness status.
 
-Readiness probe used by container orchestrators: `{"status": "ok", "model_loaded": true}`.
+---
 
-## Docker
+## 🐋 Docker Containerization
+
+To build and run locally with Docker:
 
 ```bash
+# Build Docker image
 docker build -t equation-slate .
-docker run --rm -p 7860:7860 equation-slate
+
+# Run Docker container
+docker run -p 7860:7860 equation-slate
 ```
 
-Then visit `http://localhost:7860`. The image installs system libraries
-OpenCV needs at runtime (`libgl1`, `libglib2.0-0`), runs a single Gunicorn
-worker with multiple threads (see the comment in `Dockerfile` on why a
-single *process* is used for a memory-heavy model like this), and exposes a
-`HEALTHCHECK` against `/healthz`.
+Access the application at `http://localhost:7860`.
 
-To avoid re-downloading Pix2Tex's weights on every container start, mount a
-volume at the cache directory:
+---
 
-```bash
-docker run --rm -p 7860:7860 -v equation-slate-weights:/app/model_weights equation-slate
-```
+## 📄 License
 
-## Deployment
-
-### Option A — Hugging Face Spaces (recommended)
-
-1. Create a new Space at huggingface.co/new-space, SDK = **Docker**.
-2. Push this repository to the Space's git remote:
-   ```bash
-   git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
-   git push space main
-   ```
-3. Spaces builds the `Dockerfile` automatically and exposes port `7860`
-   (already the default in this project). No further configuration needed.
-4. First build will take a few minutes (torch + pix2tex install, plus the
-   first weight download on cold start). Subsequent restarts reuse the
-   Space's persistent storage if you've enabled it.
-
-### Option B — Render
-
-1. Push this repository to GitHub.
-2. On Render: **New → Web Service**, connect the repo, environment =
-   **Docker**.
-3. Render sets `$PORT` automatically; the Dockerfile's `CMD` already binds
-   to `${PORT:-7860}`, so no changes are required.
-4. Add a persistent disk mounted at `/app/model_weights` (Render → Disks) if
-   you want to avoid re-downloading Pix2Tex weights on every deploy.
-
-### Sharing your work
-
-Once deployed, share the live Space/Render URL alongside this repository's
-GitHub URL — the two together are the full deliverable (see the project
-brief's Deployment section).
-
-## Configuration
-
-All configuration is environment-variable driven (`config.py`), so the same
-code runs unmodified locally and in a container:
-
-| Variable                 | Default              | Purpose                                             |
-|---------------------------|----------------------|------------------------------------------------------|
-| `FLASK_ENV`               | `production`         | `development` / `production` / `testing`             |
-| `DEVICE`                  | `cpu`                | `cuda` if deploying with a GPU                        |
-| `MODEL_WEIGHTS_DIR`       | `./model_weights`    | Where Pix2Tex's cache directory is created            |
-| `CONFIDENCE_SAMPLES`      | `3`                  | Re-decodes used for the self-consistency confidence   |
-| `TARGET_IMAGE_WIDTH/HEIGHT` | `224`               | Preprocessing output canvas size                       |
-| `MAX_CONTENT_LENGTH`      | `8388608` (8 MB)     | Max upload size                                        |
-| `LOG_LEVEL`               | `INFO`               | Python logging level                                   |
-| `LOG_TO_FILE`             | `true`               | Also write rotating logs to `logs/app.log`             |
-
-## Known limitations
-
-- **Pix2Tex is trained primarily on rendered/typeset LaTeX**, not photographed
-  handwriting. It handles clean, well-segmented handwriting reasonably well,
-  but is the single biggest source of recognition error in this pipeline —
-  messy handwriting, multi-line equations, and unusual symbols reduce
-  accuracy. This is a model limitation, not a bug in the surrounding
-  application.
-- **Confidence is a heuristic**, not a calibrated probability (see above).
-  Treat it as a relative signal ("this one looks shakier than that one"),
-  not an exact error rate.
-- **SymPy's `parse_latex`** covers a broad but not exhaustive subset of
-  LaTeX math syntax; some valid LaTeX from Pix2Tex (unusual macros, multi-line
-  systems of equations, matrices) will fail to parse. The API surfaces this
-  as a `solve_warning` rather than failing the whole request, since the
-  recognition step still succeeded.
-- Solving is symbolic (`sympy.solve` / `sympy.simplify`); equations with no
-  closed-form solution return an empty solution list rather than a numeric
-  approximation.
+This project is open-source and available under the [MIT License](LICENSE).
