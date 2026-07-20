@@ -33,15 +33,7 @@ ENV MODEL_WEIGHTS_DIR=/app/model_weights \
     PYTHONUNBUFFERED=1
 
 RUN mkdir -p /app/model_weights /app/static/uploads /app/logs \
-    && python -c "
-try:
-    from pix2tex.cli import LatexOCR
-    LatexOCR(None)
-    from transformers import AutoProcessor
-    AutoProcessor.from_pretrained('fhswf/TrOCR_Math_handwritten')
-except Exception as e:
-    print('Build time model caching notice:', e)
-" || true
+    && python -c "from pix2tex.cli import LatexOCR; LatexOCR(None); from transformers import AutoProcessor; AutoProcessor.from_pretrained('fhswf/TrOCR_Math_handwritten')" || true
 
 # Hugging Face Spaces expects the app to listen on port 7860 by default;
 # Render injects its own $PORT (handled by the CMD below).
