@@ -1,4 +1,4 @@
-# 🧮 Equation Slate — Handwritten Math Equation Recognizer & Solver
+# Equation Slate — Handwritten Math Equation Recognizer & Solver
 
 An end-to-end deep learning web application that recognizes mathematical equations (handwritten drawings or uploaded images), converts them into LaTeX using **Pix2Tex** and **TrOCR-Math**, and solves/simplifies them with **SymPy** — including algebraic equations and differential equations.
 
