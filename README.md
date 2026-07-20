@@ -23,23 +23,32 @@ An end-to-end deep learning web application that recognizes mathematical equatio
 
 ```mermaid
 flowchart TD
-    A["User Input: Canvas Drawing / Uploaded Image"] --> B["OpenCV Preprocessing Engine"]
-    B --> C["Grayscale -> Denoise -> Otsu Thresholding -> Bounding Crop"]
-    C --> D{"Primary OCR: Pix2Tex (LaTeX-OCR)"}
+    A["User Input: Canvas Drawing / Uploaded Image"] --> P1
+
+    subgraph Preprocessing ["1. OpenCV Preprocessing Engine"]
+        direction TB
+        P1["Grayscale Conversion"] --> P2["Bilateral Denoising Filter"]
+        P2 --> P3["Otsu Threshold Binarization"]
+        P3 --> P4["Bounding Box Crop & Padding"]
+    end
+
+    P4 --> OCR{"2. Dual OCR Engine"}
     
-    D -- "High Confidence" --> F["LaTeX Output"]
-    D -- "Low Confidence / Suspicious Artifacts" --> E["Fallback OCR: TrOCR-Math"]
-    E --> F
-    
-    F --> G["SymPy Mathematical Solver"]
-    G --> H1["Algebraic Equations (Linear/Quadratic)"]
-    G --> H2["Differential Equations (1st/2nd Order ODEs)"]
-    G --> H3["Symbolic Simplification"]
-    
-    H1 --> I["JSON API Response"]
-    H2 --> I
-    H3 --> I
-    I --> J["Interactive UI Dashboard & MathJax Renderer"]
+    OCR -- "High Confidence" --> LaTeX["LaTeX Formula String"]
+    OCR -- "Low Confidence / Artifacts" --> TrOCR["Fallback: TrOCR-Math Model"]
+    TrOCR --> LaTeX
+
+    LaTeX --> S1
+
+    subgraph Solving ["3. SymPy Mathematical Engine"]
+        direction TB
+        S1["LaTeX Syntax Parser"] --> S2{"Equation Classifier"}
+        S2 -- "Algebraic" --> S3["Polynomial & System Solver"]
+        S2 -- "Differential" --> S4["1st / 2nd Order ODE Solver"]
+    end
+
+    S3 --> Out["JSON API Response & MathJax UI"]
+    S4 --> Out
 ```
 
 ---
