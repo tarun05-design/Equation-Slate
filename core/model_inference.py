@@ -163,6 +163,12 @@ class Pix2TexRecognizer:
     def warm_up(self):
         """Force model loading eagerly at app startup."""
         _ = self.model
+        try:
+            trocr = TrOCRMathRecognizer.get_instance(device=self.device)
+            if trocr._model is None:
+                trocr._processor, trocr._model = trocr._load_model()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("TrOCR warm up skipped: %s", exc)
 
     @staticmethod
     def _similarity(a: str, b: str) -> float:
