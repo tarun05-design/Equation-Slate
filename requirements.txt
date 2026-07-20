@@ -1,3 +1,6 @@
+# Use CPU wheels for PyTorch to reduce image build size from ~900MB to ~150MB
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # --- Web framework ---------------------------------------------------------
 Flask==3.0.3
 gunicorn==22.0.0
